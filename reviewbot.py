@@ -120,6 +120,8 @@ for u in users:
 
 sendemail = True
 if sendemail and totalchanges > 0:
+  header = "%s outstanding patches awaiting review from %s\n\n"%( totalchanges, project )
+  body = header + body
   s=smtplib.SMTP()
   msg = MIMEMultipart( 'alternative' )
   msg['Subject'] = digest_subject
