@@ -1,5 +1,5 @@
 from config import digest_subject, recipients, sender, smtp, username, password, project, \
-  BUGZILLA_PRODUCT, BUGZILLA_COMPONENTS
+  BUGZILLA_PRODUCT, BUGZILLA_COMPONENTS, SENDEMAIL
 import simplejson
 from httplib2 import Http
 import feedparser
@@ -12,7 +12,6 @@ from datetime import datetime as dt
 from datetime import timedelta
 import time
 
-SENDEMAIL = True
 h = Http()
 DIVIDER = '''
 ###########################################
