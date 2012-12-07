@@ -8,6 +8,7 @@ from email.MIMEText import MIMEText
 import datetime
 from datetime import datetime as dt
 
+SENDEMAIL = True
 h = Http()
 
 
@@ -127,8 +128,7 @@ for u in users:
 %s
 '''%( volunteer, users[u]["fullName"], len(users[u]["changes"]), "\n".join( urlList ) )
 
-sendemail = True
-if sendemail and totalchanges > 0:
+if SENDEMAIL and totalchanges > 0:
   header = "%s outstanding patches awaiting review from %s\n\n"%( totalchanges, project )
   body = header + body
   s=smtplib.SMTP()
