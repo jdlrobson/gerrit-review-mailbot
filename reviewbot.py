@@ -52,6 +52,7 @@ for change in data["result"]["changes"]:
 
 # calculate patch status
 changes = {}
+reviewers = {}
 params = {"jsonrpc":"2.0","method":"strongestApprovals",
 "params":[change_ids]}
 
@@ -67,11 +68,19 @@ for approval in summaries["result"]["summaries"]:
     status = 0
     try:
       changeId = approval["approvals"][1]["key"]["patchSetId"]["changeId"]["id"]
+      dudes = []
       for review in  approval["approvals"]:
         if "value" in review: #don't count jenkins
-          if review['key']['accountId']['id'] != 75:
+          user_id = review["key"]["accountId"]["id"]
+          if user_id != 75:
             status += review["value"]
+            try:
+              dudes.append( users[ '%s'%user_id ]["fullName"] )
+            except KeyError:
+              dudes.append( 'unknown' )
+
       changes["%s"%changeId] = status
+      reviewers["%s"%changeId] = dudes
     except IndexError:
       pass
 
@@ -85,6 +94,14 @@ for change in data["result"]["changes"]:
       status = changes[change_id]
     else:
       status = '?'
+
+    if change_id in reviewers:
+      if len( reviewers[change_id] ) == 0:
+        dudes = ''
+      else:
+        dudes = '<Kudos to ' + ','.join( reviewers[change_id] ) + '>'
+    else:
+      dudes = ''
 
     time_string = change['lastUpdatedOn'][0:18]
     format = "%Y-%m-%d %H:%M:%S"
@@ -100,7 +117,7 @@ for change in data["result"]["changes"]:
       age = 0
     user = users[key]
     users[key]["changes"].append( { "subject": change["subject"], "url": url, "status": status,
-     "age": age } )
+      "reviewers": dudes, "age": age } )
   except KeyError:
     pass
 
@@ -128,8 +145,8 @@ for u in users:
     if status > 0:
       status = '+%s'%status
     totalchanges += 1
-    urlList.append( '>>%s [%s]:\n%s\n(%s days old)\n'% (
-      change["subject"], status, change["url"],
+    urlList.append( '>>%s [%s] %s:\n%s\n(%s days old)\n'% (
+      change["subject"], status, change["reviewers"], change["url"],
       change["age"]) )
   body += '''%s%s (%s):
 %s
