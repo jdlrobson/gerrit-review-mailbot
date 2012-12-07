@@ -123,7 +123,7 @@ for u in users:
       status = '+%s'%status
     totalchanges += 1
     urlList.append( '>>%s [%s]:\n%s\n(%s days old)\n'% (
-      change["subject"], status,change["url"],
+      change["subject"], status, change["url"],
       change["age"]) )
   body += '''%s%s (%s):
 ###########################################
