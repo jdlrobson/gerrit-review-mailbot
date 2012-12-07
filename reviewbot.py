@@ -10,7 +10,10 @@ from datetime import datetime as dt
 
 SENDEMAIL = True
 h = Http()
+DIVIDER = '''
+###########################################
 
+'''
 
 data = {"jsonrpc":"2.0","method":"allQueryNext","params":["status:open project:%s"%project,"z",25],"id":5}
 
@@ -126,10 +129,9 @@ for u in users:
       change["subject"], status, change["url"],
       change["age"]) )
   body += '''%s%s (%s):
-###########################################
-
 %s
-'''%( volunteer, users[u]["fullName"], len(users[u]["changes"]), "\n".join( urlList ) )
+%s
+'''%( volunteer, users[u]["fullName"], len(users[u]["changes"]), DIVIDER, "\n".join( urlList ) )
 
 if SENDEMAIL and totalchanges > 0:
   header = "%s outstanding patches awaiting review from %s\n\n"%( totalchanges, project )
