@@ -6,8 +6,10 @@ import email as emailpy
 from email.MIMEMultipart import MIMEMultipart
 from email.MIMEText import MIMEText
 import datetime
+from datetime import datetime as dt
 
 h = Http()
+
 
 data = {"jsonrpc":"2.0","method":"allQueryNext","params":["status:open project:%s"%project,"z",25],"id":5}
 
@@ -74,7 +76,14 @@ for change in data["result"]["changes"]:
     else:
       status = '?'
 
-    d = datetime.datetime.strptime(change['lastUpdatedOn'][0:18], "%Y-%m-%d %H:%M:%S")
+    time_string = change['lastUpdatedOn'][0:18]
+    format = "%Y-%m-%d %H:%M:%S"
+
+    try:
+      d = datetime.datetime.strptime(time_string, format)
+    except AttributeError:
+      d = dt(*(time.strptime(time_string, format)[0:6]))
+
     delta = d.now() - d
     age = delta.days
     if age < 0:
