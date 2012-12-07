@@ -1,12 +1,16 @@
-from config import digest_subject, recipients, sender, smtp, username, password, project
+from config import digest_subject, recipients, sender, smtp, username, password, project, \
+  BUGZILLA_PRODUCT, BUGZILLA_COMPONENTS
 import simplejson
 from httplib2 import Http
+import feedparser
 import smtplib
 import email as emailpy
 from email.MIMEMultipart import MIMEMultipart
 from email.MIMEText import MIMEText
 import datetime
 from datetime import datetime as dt
+from datetime import timedelta
+import time
 
 SENDEMAIL = True
 h = Http()
@@ -133,9 +137,43 @@ for u in users:
 %s
 '''%( volunteer, users[u]["fullName"], len(users[u]["changes"]), DIVIDER, "\n".join( urlList ) )
 
-if SENDEMAIL and totalchanges > 0:
-  header = "%s outstanding patches awaiting review from %s\n\n"%( totalchanges, project )
-  body = header + body
+yd = dt.now() - timedelta( days=1 )
+yesterday = yd.isoformat(' ')[0:10]
+
+bug_url = 'https://bugzilla.wikimedia.org/buglist.cgi?chfieldfrom=' + yesterday
+for c in BUGZILLA_COMPONENTS:
+  bug_url += '&component=%s'%( c )
+bug_url += '&chfieldto=Now&product=' + BUGZILLA_PRODUCT + '&query_format=advanced&title=Bug%20List&ctype=atom'
+
+open_bug_url = bug_url + '&chfield=%5BBug%20creation%5D&resolution=---'
+closed_bug_url = bug_url + '&chfield=resolution&resolution=FIXED'
+
+# open bugs
+feed = feedparser.parse( open_bug_url )
+newbugs = 0
+body += '***\n\nNew bugs:%s'%( DIVIDER )
+for entry in feed["entries"]:
+  newbugs +=1
+  body += '%s\n%s\n\n'%( entry['title_detail']['value'], entry["link"] )
+
+if newbugs == 0:
+  body += 'No bugs opened since yesterday\n\n'
+
+# closed bugs
+feed = feedparser.parse( closed_bug_url )
+closedbugs = 0
+body += '***\n\nClosed bugs:%s'%( DIVIDER )
+for entry in feed["entries"]:
+  closedbugs +=1
+  body += '%s\n%s\n\n'%( entry['title_detail']['value'], entry["link"] )
+
+if closedbugs == 0:
+  body += 'No bugs closed since yesterday\n\n'
+
+header = "%s outstanding patches awaiting review, %s bugs closed and %s new bugs from %s\n\n"%( totalchanges, closedbugs, newbugs, project )
+body = header + body
+
+if SENDEMAIL and totalchanges > 0 and openbugs > 0 and closedbugs > 0:
   s=smtplib.SMTP()
   msg = MIMEMultipart( 'alternative' )
   msg['Subject'] = digest_subject
