@@ -59,12 +59,15 @@ summaries = simplejson.loads(content)
 for approval in summaries["result"]["summaries"]:
   if "approvals" in approval:
     status = 0
-    changeId = approval["approvals"][1]["key"]["patchSetId"]["changeId"]["id"]
-    for review in  approval["approvals"]:
-      if "value" in review: #don't count jenkins
-        if review['key']['accountId']['id'] != 75:
-          status += review["value"]
-    changes["%s"%changeId] = status
+    try:
+      changeId = approval["approvals"][1]["key"]["patchSetId"]["changeId"]["id"]
+      for review in  approval["approvals"]:
+        if "value" in review: #don't count jenkins
+          if review['key']['accountId']['id'] != 75:
+            status += review["value"]
+      changes["%s"%changeId] = status
+    except IndexError:
+      pass
 
 # organise all changes per user
 for change in data["result"]["changes"]:
