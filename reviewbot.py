@@ -12,6 +12,8 @@ from datetime import datetime as dt
 from datetime import timedelta
 import time
 
+print dt.today()
+
 h = Http()
 DIVIDER = '''
 ###########################################
@@ -189,7 +191,7 @@ if closedbugs == 0:
 header = "%s outstanding patches awaiting review, %s bugs closed and %s new bugs from %s\n\n"%( totalchanges, closedbugs, newbugs, project )
 body = header + body
 
-if SENDEMAIL and totalchanges > 0 and newbugs > 0 and closedbugs > 0:
+if SENDEMAIL and ( totalchanges > 0 or newbugs > 0 or closedbugs > 0 ):
   s=smtplib.SMTP()
   msg = MIMEMultipart( 'alternative' )
   msg['Subject'] = digest_subject
@@ -205,6 +207,7 @@ if SENDEMAIL and totalchanges > 0 and newbugs > 0 and closedbugs > 0:
   s.sendmail(msg["From"],msg["To"],mailBody)
   print "message sent"
 else:
+  print "posting to terminal"
   print body
 
 
