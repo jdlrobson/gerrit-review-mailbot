@@ -1,5 +1,6 @@
 from config import digest_subject, recipients, sender, smtp, username, password, project, \
-  BUGZILLA_PRODUCT, BUGZILLA_COMPONENTS, SENDEMAIL
+  BUGZILLA_PRODUCT, BUGZILLA_COMPONENTS, SENDEMAIL, \
+  IS_VOLUNTEER
 import simplejson
 from httplib2 import Http
 import feedparser
@@ -38,10 +39,7 @@ for user in data["result"]["accounts"]["accounts"]:
     userid = "%s"%user["id"]["id"]
     if "preferredEmail" in user:
       users[userid] = { "fullName": user["fullName"] }
-      try:
-        index = user["preferredEmail"].index( "wikimedia.org" )
-      except ValueError:
-        users[userid]["volunteer"] = False
+      users[userid]["volunteer"] = IS_VOLUNTEER( user )
       users[userid]["changes"] = []
   except TypeError:
     pass
@@ -136,7 +134,7 @@ for u in users:
       return 1
 
   changes.sort(sorter)
-  if "volunteer" in users[u]:
+  if "volunteer" in users[u] and users[u]["volunteer"]:
     volunteer = "[VOLUNTEER] "
   else:
     volunteer = ""
