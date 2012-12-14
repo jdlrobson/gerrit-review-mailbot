@@ -188,6 +188,7 @@ if closedbugs == 0:
 
 header = "%s outstanding patches awaiting review, %s bugs closed and %s new bugs from %s\n\n"%( totalchanges, closedbugs, newbugs, project )
 body = header + body
+body += DIVIDER + 'Fork me on github: https://github.com/jdlrobson/gerrit-review-mailbot'
 
 if SENDEMAIL and ( totalchanges > 0 or newbugs > 0 or closedbugs > 0 ):
   s=smtplib.SMTP()
