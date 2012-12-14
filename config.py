@@ -8,3 +8,5 @@ smtp = "smtp.x.com"
 BUGZILLA_PRODUCT = 'MediaWiki%20extensions'
 BUGZILLA_COMPONENTS = [ 'MobileFrontend' ]
 SENDEMAIL = True
+def IS_VOLUNTEER( user ):
+  return False
