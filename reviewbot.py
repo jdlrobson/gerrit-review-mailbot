@@ -1,6 +1,5 @@
 from config import digest_subject, recipients, sender, smtp, username, password, project, \
-  BUGZILLA_PRODUCT, BUGZILLA_COMPONENTS, SENDEMAIL, \
-  IS_VOLUNTEER
+  BUGZILLA_PRODUCT, BUGZILLA_COMPONENTS, SENDEMAIL
 import simplejson
 from httplib2 import Http
 import feedparser
@@ -13,6 +12,23 @@ from datetime import datetime as dt
 from datetime import timedelta
 import time
 
+def calculate_age( timestamp ):
+  time_string = timestamp[0:18]
+  format = "%Y-%m-%d %H:%M:%S"
+
+  try:
+    d = datetime.datetime.strptime( time_string, format )
+  except AttributeError:
+    d = dt( *( time.strptime( time_string, format )[0:6] ) )
+
+  delta = d.now() - d
+  age = delta.days
+  if age < 0:
+    age = 0
+  return age
+
+#run...
+
 print dt.today()
 
 h = Http()
@@ -21,137 +37,91 @@ DIVIDER = '''
 
 '''
 
-data = {"jsonrpc":"2.0","method":"allQueryNext","params":["status:open project:%s"%project,"z",25],"id":5}
+url = "https://gerrit.wikimedia.org/r/changes/?q=status:open+project:%s&n=25&O=1"%project
 
-resp, content = h.request( 'https://gerrit.wikimedia.org/r/gerrit/rpc/ChangeListService', 'POST',
+resp, content = h.request( url, 'GET',
   headers={ "Accept": "application/json,application/json,application/jsonrequest",
     "Content-Type": "application/json; charset=UTF-8"
-  },
-  body=simplejson.dumps(data) )
+  } )
 
 
-data = simplejson.loads(content)
+# deal with weird gerrit response...
+content = content.split( '\n' )
+content = content[1:] # wtf?
+data = simplejson.loads( '\n'.join( content ) )
 
-users = {}
+patches = {}
+for change in data:
+  user = change["owner"]["name"]
+  subj = change["subject"]
+  url = 'https://gerrit.wikimedia.org/r/%s'%change["_number"]
 
-for user in data["result"]["accounts"]["accounts"]:
-  try:
-    userid = "%s"%user["id"]["id"]
-    if "preferredEmail" in user:
-      users[userid] = { "fullName": user["fullName"] }
-      users[userid]["volunteer"] = IS_VOLUNTEER( user )
-      users[userid]["changes"] = []
-  except TypeError:
-    pass
+  #go through reviews..
+  reviews = change["labels"]["Code-Review"]
+  likes = 0
+  dislikes = 0
+  status = 0
+  reviewers = []
 
-change_ids = []
-changes = data["result"]["changes"]
-for change in data["result"]["changes"]:
-  change_id = change["id"]["id"]
-  change_ids.append( { "id": change_id } )
+  if "recommended" in reviews:
+    likes += 1
+    reviewers.append( reviews["recommended"]["name"] )
+
+  if "disliked" in reviews:
+    dislikes += 1
+    reviewers.append( reviews[ "disliked" ][ "name" ] )
+
+  if "rejected" in reviews:
+    dislikes += 2
+    reviewers.append( reviews[ "rejected" ][ "name" ] )
+
+  #calculate status
+  if dislikes > 0:
+    status = -dislikes
+  else:
+    status = likes
+
+  patch = { "user": user, "subject": subj, "status": status,
+    "url": url,
+    "age": calculate_age( change["created"] ), "reviewers" : reviewers }
+  if user in patches:
+    patches[user][ "changes" ].append( patch )
+  else:
+    patches[ user ] = { "changes": [ patch ] }
 
 # calculate patch status
-changes = {}
-reviewers = {}
-params = {"jsonrpc":"2.0","method":"strongestApprovals",
-"params":[change_ids]}
-
-resp, content = h.request( 'https://gerrit.wikimedia.org/r/gerrit/rpc/PatchDetailService', 'POST',
-  headers={ "Accept": "application/json,application/json,application/jsonrequest",
-    "Content-Type": "application/json; charset=UTF-8"
-  },
-  body=simplejson.dumps( params ) )
-
-summaries = simplejson.loads(content)
-for approval in summaries["result"]["summaries"]:
-  if "approvals" in approval:
-    status = 0
-    try:
-      changeId = approval["approvals"][1]["key"]["patchSetId"]["changeId"]["id"]
-      dudes = []
-      for review in  approval["approvals"]:
-        if "value" in review: #don't count jenkins
-          user_id = review["key"]["accountId"]["id"]
-          if user_id != 75:
-            status += review["value"]
-            try:
-              dudes.append( users[ '%s'%user_id ]["fullName"] )
-            except KeyError:
-              dudes.append( 'unknown' )
-
-      changes["%s"%changeId] = status
-      reviewers["%s"%changeId] = dudes
-    except IndexError:
-      pass
-
-# organise all changes per user
-for change in data["result"]["changes"]:
-  change_id = "%s"%change["id"]["id"]
-  key = "%s"%change["owner"]["id"]
-  url = "https://gerrit.wikimedia.org/r/%s"%( change_id )
-  try:
-    if change_id in changes:
-      status = changes[change_id]
-    else:
-      status = '?'
-
-    if change_id in reviewers:
-      if len( reviewers[change_id] ) == 0:
-        dudes = ''
-      else:
-        dudes = '<Kudos to ' + ','.join( reviewers[change_id] ) + '>'
-    else:
-      dudes = ''
-
-    time_string = change['lastUpdatedOn'][0:18]
-    format = "%Y-%m-%d %H:%M:%S"
-
-    try:
-      d = datetime.datetime.strptime(time_string, format)
-    except AttributeError:
-      d = dt(*(time.strptime(time_string, format)[0:6]))
-
-    delta = d.now() - d
-    age = delta.days
-    if age < 0:
-      age = 0
-    user = users[key]
-    users[key]["changes"].append( { "subject": change["subject"], "url": url, "status": status,
-      "reviewers": dudes, "age": age } )
-  except KeyError:
-    pass
 
 # output the email
 body = ""
 totalchanges = 0
 
-for u in users:
-  changes = users[u]["changes"]
+for patch_username in patches:
+  changes = patches[ patch_username ][ "changes" ]
   def sorter(a, b):
-    if a["age"] > b["age"]:
+    if a[ "age" ] > b[ "age" ]:
       return -1
     else:
       return 1
 
   changes.sort(sorter)
-  if "volunteer" in users[u] and users[u]["volunteer"]:
-    volunteer = "[VOLUNTEER] "
-  else:
-    volunteer = ""
 
-  urlList = []
+  summary = []
   for change in changes:
     status = change["status"]
     if status > 0:
       status = '+%s'%status
     totalchanges += 1
-    urlList.append( '>>%s [%s] %s:\n%s\n(%s days old)\n'% (
-      change["subject"], status, change["reviewers"], change["url"],
+    if len( change[ "reviewers" ] ) == 0:
+      reviewees = "n/a"
+    else:
+      reviewees = "(Reviewed by " + ",".join( change[ "reviewers" ] ) + ")"
+    summary.append( '>>%s [%s] %s:\n%s\n(%s days old)\n'% (
+      change["subject"], status, reviewees, change["url"],
       change["age"]) )
-  body += '''%s%s (%s):
+  body += '''%s (%s):
 %s
 %s
-'''%( volunteer, users[u]["fullName"], len(users[u]["changes"]), DIVIDER, "\n".join( urlList ) )
+'''%( patch_username, len( patches[ patch_username ][ "changes" ] ), DIVIDER, "\n".join( summary ) )
 
 yd = dt.now() - timedelta( days=1 )
 yesterday = yd.isoformat(' ')[0:10]
