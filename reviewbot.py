@@ -163,7 +163,7 @@ body += DIVIDER + 'Fork me on github: https://github.com/jdlrobson/gerrit-review
 if SENDEMAIL and ( totalchanges > 0 or newbugs > 0 or closedbugs > 0 ):
   s=smtplib.SMTP()
   msg = MIMEMultipart( 'alternative' )
-  msg['Subject'] = digest_subject
+  msg['Subject'] = digest_subject%( totalchanges )
   msg['From'] = sender
   msg['To'] = recipients
 
@@ -177,6 +177,7 @@ if SENDEMAIL and ( totalchanges > 0 or newbugs > 0 or closedbugs > 0 ):
   print "message sent"
 else:
   print "posting to terminal"
+  print "Subject: " + digest_subject%( totalchanges )
   print body
 
 
