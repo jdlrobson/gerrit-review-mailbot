@@ -184,7 +184,7 @@ if SENDEMAIL and ( totalchanges > 0 or newbugs > 0 or closedbugs > 0 ):
   msg['From'] = sender
   msg['To'] = recipients
 
-  part1 = MIMEText(body, 'plain')
+  part1 = MIMEText( body.encode('utf-8'), _charset='utf-8' )
   msg.attach(part1)
 
   mailBody = msg.as_string()
